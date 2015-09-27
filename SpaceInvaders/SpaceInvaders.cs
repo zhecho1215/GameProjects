@@ -9,14 +9,17 @@ class SpaceInvaders
     private const int MaxHeight = 30;
     private const int MaxWidth = 70;
     private const int FieldWidth = MaxWidth/2;
+
     private static int PlayerPositionX = FieldWidth / 2;
     private static int PlayerPositionY = MaxHeight - 2;
-    static List<int[]> enemies = new List<int[]>();
+    static List<int[]> enemies = new List<int[]>(); // the enemies and shots are List because this list holds all the enemies and shots currently on the field so they can drawn. Each enemy and object consists of PositionX and PositionY that is why they are saved in List from int array.
     static List<int[]> shots = new List<int[]>();
+
     private static char playerSymbol = 'W'; // it looks the most as a spaceship to me
     private static char enemySymbol = '@'; // looks the angriest
     private static char shotSymbol = ':'; // just random shots
 
+    static Random generator = new Random(); // this is the generator for the starting position of the enemies.
 
     static void Main()
     {
@@ -65,11 +68,12 @@ class SpaceInvaders
                     }
                 }
 
-                //Clear. If the console is not cleared the object will be drawn multiple times and it will looks like there is movement.
+               
                 
             }
-
-            Thread.Sleep(200);
+            
+            Thread.Sleep(200); // decide how much do you want to slow the game.
+            //Clear. If the console is not cleared the object will be drawn multiple times and it will looks like there is no movement.
             Console.Clear();
         }
     }
@@ -101,12 +105,12 @@ class SpaceInvaders
 
     private static void DrawShots()
     {
-       // TODO
+       // TODO. They start from the player position and going upwards so their PostitionY--; 
     }
 
     private static void DrawEnemies()
     {
-        // TODO
+        // TODO They start from the top position and going downwards so their PostitionY++; 
     }
     private static void DrawAtCoordinates(int[] objectPostion, ConsoleColor objectColor, char objectSymbol)
     {
