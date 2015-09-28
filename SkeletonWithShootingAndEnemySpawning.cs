@@ -25,7 +25,7 @@ class SpaceInvaders
         // I set the size of the Console it can be changed easily from the constants above
         Console.BufferHeight = Console.WindowHeight = MaxHeight;
         Console.BufferWidth = Console.WindowWidth = MaxWidth;
-
+        FieldBarrier();
         int lives = 3;
 
         while (lives > 0)
@@ -82,7 +82,7 @@ class SpaceInvaders
 
     private static void DrawResultTable()
     {
-        FieldBarrier();
+     
         // TODO all the information we are going to think of.
     }
 
