@@ -1,0 +1,367 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+
+class SpaceInvaders
+{
+    // here are all variables that we need to be used more often in both the Main and the additional methods.
+    private const int MaxHeight = 30;
+    private const int MaxWidth = 70;
+    private const int FieldWidth = MaxWidth / 6; // I made the field smaller because otherwise you cannot catch all the enemies.
+
+    private static int PlayerPositionX = FieldWidth / 2;
+    private static int PlayerPositionY = MaxHeight - 2;
+    static List<int[]> enemies = new List<int[]>(); // the enemies and shots are List because this list holds all the enemies and shots currently on the field so they can drawn. Each enemy and object consists of PositionX and PositionY that is why they are saved in List from int array.
+    static List<int[]> shots = new List<int[]>();
+
+    private static char playerSymbol = 'W'; // it looks the most as a spaceship to me
+    private static char enemySymbol = '*'; // looks the angriest
+    private static char shotSymbol = '|'; // just random shots
+    //Level details
+    private static int level = 1;
+    private static int NumberOfLevels = 3;
+    private static int PauseDivider = 16;//changing count of enemies depending on level;
+    private static int lives = 3;
+    private static int pause = 0; // here I am adjusting the enemies being spawn because there were too many.
+    private static int winnedScoresInLevel = 0;//counting points at each level
+    private static int scoresToWin = 10;// the count of scores that are needed to go to next level
+    private static Random generator = new Random(); // this is the generator for the starting position of the enemies.
+
+    //bool values for wining game and level;
+    static bool wonLevel = false;
+    private static int sleepingParameter = 100;
+    private static bool frozen = false;
+
+
+    static void Main()
+    {
+        // I set the size of the Console it can be changed easily from the constants above
+        Console.BufferHeight = Console.WindowHeight = MaxHeight;
+        Console.BufferWidth = Console.WindowWidth = MaxWidth;
+        PlayingLevel(level);// using param level as flag to change difficulty;
+    }
+
+
+
+
+    static void PlayingLevel(int level)
+    {
+        bool frozenUsed = false;
+        while (lives > 0)
+        {
+            // Draw
+            DrawField();
+            DrawResultTable();
+            // I moved the spawning of the enemies outside the keyavailable loop because otherwise not a single enemy is spawn if you don't click a button.
+            //  FieldBarrier();
+            SpawnEnemies(frozen);
+            // Logic
+
+            while (Console.KeyAvailable)
+            {
+                var keyPressed = Console.ReadKey(true);
+                if (keyPressed.Key == ConsoleKey.RightArrow)
+                {
+                    if (PlayerPositionX < FieldWidth)
+                    {
+                        PlayerPositionX++;
+                    }
+                }
+                else if (keyPressed.Key == ConsoleKey.LeftArrow)
+                {
+                    if (PlayerPositionX > 0)
+                    {
+                        PlayerPositionX--;
+                    }
+                }
+                else if (keyPressed.Key == ConsoleKey.DownArrow)
+                {
+                    if (PlayerPositionY < MaxHeight - 2)
+                    {
+                        PlayerPositionY++;
+                    }
+                }
+                else if (keyPressed.Key == ConsoleKey.UpArrow)
+                {
+                    if (PlayerPositionY > 1)
+                    {
+                        PlayerPositionY--;
+                    }
+                }
+                else if (keyPressed.Key == ConsoleKey.Spacebar)
+                {
+                    shots.Add(new int[] { PlayerPositionX, PlayerPositionY });
+                }
+                else if (keyPressed.Key == ConsoleKey.NumPad0)
+                {
+                    if (!frozenUsed)
+                    {
+                        Thread freeze = new Thread(Freeze());
+                        freeze.Start();
+                    }
+                    frozenUsed = true;
+                }
+            }
+            UpdatingShotPosition(); // I did the updating of position in this because otherwise if both updates of the position are in one method when the enemy is at a odd Y position and we shoot(our shoot is alway even Y position) they just pass through each other.
+            Collision();
+            if (!frozen)
+            {
+                UpdatingEnemyPosition();
+                Collision();
+            }
+
+            Thread.Sleep(sleepingParameter); // decide how much do you want to slow the game. // 200 was too slow for me
+
+
+            //Clear. We need to think of an way to clear withour clearing the barrier because right now if we slow the game a little bit more and the barrier will start to flicker.
+            Console.Clear();
+            wonLevel = winnedScoresInLevel >= scoresToWin;
+            if (wonLevel)
+            {
+                level++;
+                GoToNextLevel();
+
+            }
+        }
+        if (lives == 0)
+        {
+            Console.WriteLine("GAME OVER");
+            Console.WriteLine("Press enter to exit the game or press space to play a new game");
+            var keyPressed = Console.ReadKey();
+            while ((keyPressed.Key != ConsoleKey.Spacebar) && (keyPressed.Key != ConsoleKey.Enter))
+            {
+                keyPressed = Console.ReadKey();
+            }
+            //nothing will happen if you press buttons except enter or space
+            if (keyPressed.Key == ConsoleKey.Spacebar)
+            {
+                NewGameDetails();
+            }
+            if (keyPressed.Key == ConsoleKey.Enter)
+            {
+                System.Environment.Exit(1);
+            }
+
+        }
+    }
+  
+    private static ThreadStart Freeze()
+    {
+        ThreadStart freeze = () =>
+        {
+            Stopwatch sb = new Stopwatch();
+            int millieSecondsOfFreeze = 4000;
+            sb.Start();
+            while (sb.ElapsedMilliseconds < millieSecondsOfFreeze)
+            {
+                frozen = true;
+            }
+            frozen = false;
+        };
+        return freeze;
+    }
+
+    static void GoToNextLevel()
+    {
+
+        if (level > NumberOfLevels)
+        {
+            Console.WriteLine("You won the whole game!!!");
+            // ConfigurateLevelDetails(1); TO DO
+        }
+        else
+        {
+            Console.WriteLine("Press enter to go to next level");//May be more.. beautiful
+            var keyPressed = Console.ReadKey();
+            if (keyPressed.Key == ConsoleKey.Enter)
+            {
+                Console.Clear();
+                winnedScoresInLevel = 0;
+                wonLevel = false;
+                ConfigurateLevelDetails();
+                PlayingLevel(level);
+            }
+        }
+    }
+
+    private static void ConfigurateLevelDetails()
+    {
+        //Setting all values for the start of the next level;
+        enemies.Clear();
+        shots.Clear();
+        PlayerPositionX = FieldWidth / 2;
+        PlayerPositionY = MaxHeight - 2;
+        PauseDivider -= 2;
+        sleepingParameter -= 10;
+        lives++;
+    }
+
+
+    private static void UpdatingShotPosition()
+    {
+        shots.ForEach(shot => shot[1]--);
+    }
+
+    private static void UpdatingEnemyPosition()
+    {
+        enemies.ForEach(enemy => enemy[1]++);
+    }
+
+    private static void Collision()
+    {
+        List<int> enemiesToRemove = new List<int>();
+        List<int> shotsToRemove = new List<int>();
+        List<int[]> enemiesLeft = new List<int[]>();
+        List<int[]> shotsLeft = new List<int[]>();
+        EnemiesVsPlayer(enemiesToRemove);
+        EnemiesVsShots(enemiesToRemove, shotsToRemove);
+        UpdatingTheEnemies(enemiesLeft, enemiesToRemove); // here we're getting the new list of enemies after the collision
+        UpdatingTheShots(shotsLeft, shotsToRemove);
+        shots = shotsLeft;
+        enemies = enemiesLeft;
+    }
+
+    private static void UpdatingTheShots(List<int[]> shotsLeft, List<int> shotsToRemove)
+    {
+        for (int i = 0; i < shots.Count; i++)
+        {
+            if (shotsToRemove.Contains(i))
+            {
+                continue;
+            }
+            if (shots[i][1] < 1)
+            {
+                continue;
+            }
+            shotsLeft.Add(shots[i]);
+        }
+    }
+
+    private static void UpdatingTheEnemies(List<int[]> enemiesLeft, List<int> enemiesToRemove)
+    {
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            if (enemiesToRemove.Contains(i))
+            {
+                continue;
+            }
+            enemiesLeft.Add(enemies[i]);
+        }
+    }
+
+    private static void EnemiesVsShots(List<int> enemiesToRemove, List<int> shotsToRemove)
+    {
+        for (int i = 0; i < shots.Count; i++)
+        {
+            int theEnemyCollidedWithAShot = enemies.FindIndex(enemy => enemy[0] == shots[i][0] && enemy[1] == shots[i][1]);
+            if (theEnemyCollidedWithAShot >= 0)
+            {
+                enemiesToRemove.Add(theEnemyCollidedWithAShot);
+                shotsToRemove.Add(i);
+                winnedScoresInLevel++;
+            }
+
+        }
+    }
+
+    private static void EnemiesVsPlayer(List<int> enemiesToRemove)
+    {
+        int enemyHitPlayer = enemies.FindIndex(enemy => enemy[0] == PlayerPositionX && enemy[1] == PlayerPositionY);
+        // if there is no such enemy enemyHit is -1 and so the condition is:
+        if (enemyHitPlayer >= 0)
+        {
+            lives--;
+            enemiesToRemove.Add(enemyHitPlayer);
+        }
+        int enemyPassingBorder = enemies.FindIndex(enemy => enemy[1] >= MaxHeight - 2);
+        if (enemyPassingBorder >= 0)
+        {
+            lives--;
+            enemiesToRemove.Add(enemyPassingBorder);
+        }
+
+    }
+
+
+    private static void DrawResultTable()
+    {
+
+        // TODO all the information we are going to think of.
+    }
+
+    private static void FieldBarrier()
+    {
+        // TODO we need to think of an a way to draw the barrier outside the while and after that we need make a clear method which doesn't remove it
+        for (int i = 0; i < MaxHeight; i++)
+        {
+            DrawAtCoordinates(new int[] { FieldWidth + 1, i }, ConsoleColor.Black, '|');
+        }
+    }
+
+    private static void DrawField()
+    {
+        DrawEnemies();
+        DrawShots();
+        DrawPlayer();
+    }
+
+    private static void DrawPlayer()
+    {
+        int[] playerPosition = { PlayerPositionX, PlayerPositionY };
+        ConsoleColor playerColor = ConsoleColor.Green; // choose whatever you like; // changed to Green so it's more visible
+        DrawAtCoordinates(playerPosition, playerColor, playerSymbol);
+    }
+
+    private static void DrawShots()
+    {
+        foreach (var shot in shots)
+        {
+            DrawAtCoordinates(new[] { shot[0], shot[1] }, ConsoleColor.DarkBlue, shotSymbol);
+        }
+    }
+
+    private static void DrawEnemies()
+    {
+        foreach (var enemy in enemies)
+        {
+            DrawAtCoordinates(new[] { enemy[0], enemy[1] }, ConsoleColor.Red, enemySymbol);
+        }
+    }
+    private static void DrawAtCoordinates(int[] objectPostion, ConsoleColor objectColor, char objectSymbol)
+    {
+        Console.SetCursorPosition(objectPostion[0], objectPostion[1]);
+        Console.ForegroundColor = objectColor;
+        Console.WriteLine(objectSymbol);
+        Console.CursorVisible = false;
+    }
+    private static void SpawnEnemies(bool frozen)
+    {
+        if (!frozen)
+        {
+            if (pause % PauseDivider == 0)
+            {
+                int spawningWidth = generator.Next(0, FieldWidth);
+                int spawningHeight = generator.Next(0, MaxHeight / 6);
+                enemies.Add(new int[] { spawningWidth, spawningHeight });
+                pause = 0;
+            }
+            pause++;
+        }
+
+    }
+    static void NewGameDetails()
+    {
+        Console.Clear();
+        winnedScoresInLevel = 0;
+        wonLevel = false;
+        enemies.Clear();
+        shots.Clear();
+        PlayerPositionX = FieldWidth / 2;
+        PlayerPositionY = MaxHeight - 2;
+        PauseDivider = 16;
+        sleepingParameter = 100;
+        lives = 3;
+        PlayingLevel(level);
+    }
+}
